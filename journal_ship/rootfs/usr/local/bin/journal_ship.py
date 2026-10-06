@@ -157,7 +157,9 @@ class Shipper:
 
     # ---- journalctl child
     def _start_journalctl(self) -> None:
-        cmd = ["journalctl", "-D", self.journal_dir, "-o", "json", "--output-fields", FIELDS, "--no-pager", "-q", "-f"]
+        # --no-tail: in follow mode journalctl otherwise shows only the last 10 lines before
+        # following, which would skip the whole backlog of a boot or of a long outage.
+        cmd = ["journalctl", "-D", self.journal_dir, "-o", "json", "--output-fields", FIELDS, "--no-pager", "-q", "-f", "--no-tail"]
         cursor = None
         if CURSOR_FILE.exists():
             cursor = CURSOR_FILE.read_text().strip() or None
