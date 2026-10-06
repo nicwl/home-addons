@@ -12,7 +12,7 @@ if [[ -z "$QUIC_PORT" ]]; then
   QUIC_PORT=null
 fi
 
-bashio::log.info "Local build: $(nginx -v 2>&1 | sed 's/^nginx version: //') | $(openssl version) | image built $(cat /etc/local-build-date 2>/dev/null || echo unknown)"
+bashio::log.info "Local build: $(nginx -v 2>&1 | sed 's/^nginx version: //') | $(openssl version) | packages refreshed $(cat /etc/local-build-date 2>/dev/null || echo unknown)"
 bashio::log.info "Merging options & variables for template"
 JSON_CONF=$(jq --argjson port "$(bashio::core.port)" --argjson quic_port "$QUIC_PORT" \
     '({options: .}) + ({variables: {port: $port, quic_port: $quic_port}})' \
