@@ -11,6 +11,6 @@ init: false
 hassio_api: true
 hassio_role: manager
 options:
-  target: local_nginx_proxy_local
+  target: dda86250_nginx_proxy_local
 schema:
   target: str
