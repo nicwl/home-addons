@@ -45,14 +45,23 @@ else
 fi
 bashio::log.info "Active proxy: ${ACTIVE}; idle: ${IDLE}"
 
-# 4. Rebuild the idle member only when Alpine has published something (or when forced)
+# 4. Build the idle member when its source changed in the store (version differs), when Alpine has
+#    published something (package index changed), or when forced. Otherwise nothing.
 NEW=$(curl -s -m 90 "$INDEX_URL" | sha256sum | cut -d' ' -f1)
 if [[ ${#NEW} -ne 64 ]]; then bashio::log.warning "Could not fetch Alpine's package index; no rebuild tonight"; exit 0; fi
 OLD=$(cat /data/last-index.sha256 2>/dev/null || echo none)
-if [[ "$NEW" == "$OLD" && "$FORCE" != "true" ]]; then bashio::log.info "Alpine ${BRANCH} index unchanged since the last successful build; nothing to do"; exit 0; fi
-bashio::log.info "Building ${IDLE} (index changed: $([[ "$NEW" != "$OLD" ]] && echo yes || echo no), forced: ${FORCE})"
+IDLE_INFO=$(info "$IDLE"); INST_VER=$(echo "$IDLE_INFO" | jq -r '.data.version // empty'); STORE_VER=$(echo "$IDLE_INFO" | jq -r '.data.version_latest // empty')
+if [[ -z "$INST_VER" ]]; then MODE=install
+elif [[ -n "$STORE_VER" && "$INST_VER" != "$STORE_VER" ]]; then MODE=update
+elif [[ "$NEW" != "$OLD" || "$FORCE" == "true" ]]; then MODE=rebuild
+else bashio::log.info "Nothing to do: ${IDLE} is at ${INST_VER} (store ${STORE_VER}), Alpine ${BRANCH} index unchanged since the last successful build"; exit 0; fi
+bashio::log.info "Building ${IDLE}: ${MODE} (installed ${INST_VER:-none}, store ${STORE_VER:-?}; index changed: $([[ "$NEW" != "$OLD" ]] && echo yes || echo no); forced: ${FORCE})"
 START=$(date +%s)
-if [[ "$(info "$IDLE" | jq -r '.data.version // empty')" == "" ]]; then RESP=$(api POST "/addons/${IDLE}/install" 1500); else RESP=$(api POST "/addons/${IDLE}/rebuild" 1500); fi
+case "$MODE" in
+  install) RESP=$(api POST "/addons/${IDLE}/install" 1500) ;;
+  update)  RESP=$(api POST "/addons/${IDLE}/update" 1500 '{"backup":false}') ;;
+  rebuild) RESP=$(api POST "/addons/${IDLE}/rebuild" 1500) ;;
+esac
 RC=$(echo "${RESP}" | jq -r '.result // "no-response"' 2>/dev/null || echo no-response); SECS=$(( $(date +%s) - START ))
 if [[ "$RC" != "ok" ]]; then
   bashio::log.error "Build of ${IDLE} FAILED after ${SECS}s: $(echo "${RESP}" | jq -r '.message // .' 2>/dev/null | head -c 200). ${ACTIVE} keeps serving."
@@ -76,7 +85,7 @@ if [[ "$CODE" == "400" && "$(state "$IDLE")" == "started" ]]; then
   LINE=$(api GET "/addons/${IDLE}/logs" 60 | grep -a 'Local build:' | tail -1 | sed -e 's/.*Local build: //' -e 's/\x1b\[[0-9;]*m//g')
   bashio::log.info "${IDLE} is serving and gating (probe ${CODE}): ${LINE:-versions not read}"
   dismiss proxy_rebuild_failed
-  notify proxy_rebuilt "Proxy rebuilt with new Alpine packages" "Now serving from ${IDLE}: ${LINE:-versions not read}. Built in ${SECS}s. Dismiss when read."
+  notify proxy_rebuilt "Proxy rebuilt (${MODE})" "Now serving from ${IDLE} after a ${MODE}: ${LINE:-versions not read}. Built in ${SECS}s. Dismiss when read."
   exit 0
 fi
 bashio::log.error "New build ${IDLE} did not come up correctly (state $(state "$IDLE"), probe '${CODE}'); swapping back to ${ACTIVE}"

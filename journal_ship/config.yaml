@@ -1,0 +1,30 @@
+---
+name: Journal shipper (Backblaze B2)
+version: 1.0.0
+slug: journal_ship
+description: Streams the Yellow's whole system journal (HAOS, Supervisor, Core, every add-on including the proxy's access log) to an off-site Backblaze B2 bucket in gzipped chunks, using a write-only key, so the history survives a reboot or a hostile host. Source of truth is the home repo, addons/journal_ship.
+arch:
+  - aarch64
+startup: services
+boot: auto
+init: false
+journald: true
+hassio_api: true
+homeassistant_api: true
+timeout: 90
+options:
+  bucket: ""
+  key_id: ""
+  key: ""
+  prefix: journal/
+  interval_minutes: 10
+  max_chunk_mb: 8
+  spool_cap_mb: 512
+schema:
+  bucket: str
+  key_id: str
+  key: password
+  prefix: str
+  interval_minutes: int(1,120)
+  max_chunk_mb: int(1,64)
+  spool_cap_mb: int(16,4096)

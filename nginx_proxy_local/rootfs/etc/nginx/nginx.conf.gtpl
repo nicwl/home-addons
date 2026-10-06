@@ -3,7 +3,9 @@
     Some variables are available in .variables, these are added in nginx/run
 */}}
 daemon off;
-error_log stderr;
+# Local build: info level so rejected TLS handshakes (wrong SNI, no client certificate) are
+# logged; they are the front-door evidence the journal shipper exists for.
+error_log stderr info;
 pid /var/run/nginx.pid;
 
 events {
@@ -27,6 +29,18 @@ http {
         default $http_host;
         ''      $host;
     }
+
+    # Local build: access log to stdout so it lands in the host journal (and from there in the
+    # off-site journal archive). Records who presented which client certificate for which name.
+    # Webhook ids are secrets the companion apps use; they are masked before logging.
+    map $request_uri $log_uri {
+        "~^(?<wp>/api/webhook/)[^/?]+(?<wr>.*)$"  "${wp}<id>${wr}";
+        default                                    $request_uri;
+    }
+    log_format house '$time_iso8601 $remote_addr sni="$ssl_server_name" cert=$ssl_client_verify '
+                     'subject="$ssl_client_s_dn" $status $request_method "$log_uri" $body_bytes_sent '
+                     '${request_time}s "$http_user_agent"';
+    access_log /dev/stdout house;
 
     server_tokens off;
 
