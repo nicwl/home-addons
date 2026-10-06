@@ -1,0 +1,16 @@
+---
+name: Proxy nightly rebuild
+version: 1.0.0
+slug: proxy_rebuild
+description: One-shot. Asks the Supervisor to rebuild the local NGINX proxy add-on, so Alpine's security fixes land within a day, then exits. Started nightly by a Home Assistant automation. Source of truth is the home repo, addons/proxy_rebuild.
+arch:
+  - aarch64
+startup: application
+boot: manual
+init: false
+hassio_api: true
+hassio_role: manager
+options:
+  target: local_nginx_proxy_local
+schema:
+  target: str
