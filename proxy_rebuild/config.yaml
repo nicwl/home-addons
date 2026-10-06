@@ -1,6 +1,6 @@
 ---
 name: Proxy nightly maintenance
-version: 1.2.0
+version: 1.2.1
 slug: proxy_rebuild
 description: One-shot, started nightly by a Home Assistant automation. Warns before the proxy's Alpine branch reaches end of life, flags changes to the official NGINX add-on upstream, and when Alpine has published new packages builds the idle member of the blue/green proxy pair, verifies it, and swaps it in. A failed build changes nothing; yesterday's build keeps serving. Never starts the official add-on. Source of truth is the home repo, addons/proxy_rebuild.
 arch:

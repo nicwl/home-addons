@@ -48,9 +48,6 @@ if [[ ${#NEW} -ne 64 ]]; then bashio::log.warning "Could not fetch Alpine's pack
 OLD=$(cat /data/last-index.sha256 2>/dev/null || echo none)
 if [[ "$NEW" == "$OLD" && "$FORCE" != "true" ]]; then bashio::log.info "Alpine ${BRANCH} index unchanged since the last successful build; nothing to do"; exit 0; fi
 bashio::log.info "Building ${IDLE} (index changed: $([[ "$NEW" != "$OLD" ]] && echo yes || echo no), forced: ${FORCE})"
-# options follow the active member so the two never diverge
-OPTS=$(info "$ACTIVE" | jq -c '{options: .data.options, network: .data.network}')
-api POST "/addons/${IDLE}/options" 60 "$OPTS" >/dev/null
 START=$(date +%s)
 if [[ "$(info "$IDLE" | jq -r '.data.version // empty')" == "" ]]; then RESP=$(api POST "/addons/${IDLE}/install" 1500); else RESP=$(api POST "/addons/${IDLE}/rebuild" 1500); fi
 RC=$(echo "${RESP}" | jq -r '.result // "no-response"' 2>/dev/null || echo no-response); SECS=$(( $(date +%s) - START ))
@@ -60,6 +57,9 @@ if [[ "$RC" != "ok" ]]; then
   exit 1
 fi
 bashio::log.info "Built ${IDLE} in ${SECS}s; swapping"
+# options follow the active member so the two never diverge
+OPTS=$(info "$ACTIVE" | jq -c '{options: .data.options, network: .data.network}')
+api POST "/addons/${IDLE}/options" 60 "$OPTS" >/dev/null
 
 # 5. Swap: stop active, start the new build, verify it gates; otherwise swap straight back
 HOST=$(echo "$OPTS" | jq -r '.options.domain')
