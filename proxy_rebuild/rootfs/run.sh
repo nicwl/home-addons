@@ -2,6 +2,7 @@
 # Nightly maintenance for the blue/green local NGINX proxy pair. One-shot: check, act, report, exit.
 # Rule: never start a proxy that was not just built and verified; a failure leaves the active one alone.
 set -u
+set +o errexit +o pipefail   # bashio enables exit-on-error; this job must keep going and report
 PA="$(bashio::config 'proxy_a')"; PB="$(bashio::config 'proxy_b')"
 BRANCH="$(bashio::config 'alpine_branch')"; UPSTREAM="$(bashio::config 'upstream_commit')"; FORCE="$(bashio::config 'force_rebuild')"
 INDEX_URL="https://dl-cdn.alpinelinux.org/alpine/${BRANCH}/main/aarch64/APKINDEX.tar.gz"
@@ -12,7 +13,9 @@ dismiss() { api POST /core/api/services/persistent_notification/dismiss 30 "$(jq
 info() { api GET "/addons/$1/info" 60; }
 state() { info "$1" | jq -r '.data.state // "unknown"'; }
 probe() { # the proxy must answer the right SNI with nginx's certificate demand: proves it is up and gating
-  local ip="$1" host="$2"; curl -sk -m 15 --resolve "${host}:443:${ip}" -o /dev/null -w '%{http_code}' "https://${host}/" 2>/dev/null; }
+  local ip="$1" host="$2" code
+  code=$(curl -sk -m 15 --resolve "${host}:443:${ip}" -o /dev/null -w '%{http_code}' "https://${host}/" 2>/dev/null) || code=000
+  echo "${code:-000}"; }
 
 # 1. Alpine branch end of life: warn from 90 days out
 EOL=$(curl -s -m 30 https://alpinelinux.org/releases.json | jq -r --arg b "$BRANCH" '.release_branches[] | select(.rel_branch==$b) | .eol_date // empty')
@@ -65,7 +68,8 @@ api POST "/addons/${IDLE}/options" 60 "$OPTS" >/dev/null
 HOST=$(echo "$OPTS" | jq -r '.options.domain')
 api POST "/addons/${ACTIVE}/stop" 120 >/dev/null; sleep 3
 api POST "/addons/${IDLE}/start" 120 >/dev/null
-for i in $(seq 1 40); do sleep 5; IP=$(info "$IDLE" | jq -r '.data.ip_address // empty'); CODE=$(probe "$IP" "$HOST"); [[ "$CODE" == "400" ]] && break; done
+CODE=000; for i in $(seq 1 40); do sleep 5; IP=$(info "$IDLE" | jq -r '.data.ip_address // empty'); [[ -n "$IP" ]] && CODE=$(probe "$IP" "$HOST"); [[ "$CODE" == "400" ]] && break; done
+bashio::log.info "Gate probe on ${IDLE} (${IP:-no ip}) answered ${CODE} after $((i*5))s"
 if [[ "$CODE" == "400" && "$(state "$IDLE")" == "started" ]]; then
   api POST "/addons/${IDLE}/options" 60 '{"boot":"auto"}' >/dev/null; api POST "/addons/${ACTIVE}/options" 60 '{"boot":"manual"}' >/dev/null
   echo "$NEW" > /data/last-index.sha256
