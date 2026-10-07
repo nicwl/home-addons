@@ -1,5 +1,5 @@
 ---
-version: 4.5.1-local.4
+version: 4.5.1-local.5
 hassio_api: true
 slug: nginx_proxy_local
 name: NGINX proxy (local nightly build)

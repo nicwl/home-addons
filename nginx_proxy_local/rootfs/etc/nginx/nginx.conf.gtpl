@@ -39,7 +39,7 @@ http {
     }
     log_format house '$time_iso8601 $remote_addr sni="$ssl_server_name" cert=$ssl_client_verify '
                      'subject="$ssl_client_s_dn" $status $request_method "$log_uri" $body_bytes_sent '
-                     '${request_time}s "$http_user_agent"';
+                     '${request_time}s "$http_user_agent" tls=$ssl_protocol/$ssl_curve/$ssl_cipher';
     access_log /dev/stdout house;
 
     server_tokens off;
