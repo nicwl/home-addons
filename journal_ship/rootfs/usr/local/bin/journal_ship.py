@@ -33,7 +33,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-DATA = Path("/data")
+# /data in the add-on; the Pi passes its systemd state directory (services/journal-ship).
+DATA = Path(os.environ.get("JOURNAL_SHIP_DATA", "/data"))
 SPOOL = DATA / "spool"
 CURSOR_FILE = DATA / "cursor"
 AUTH_URL = "https://api.backblazeb2.com/b2api/v4/b2_authorize_account"
