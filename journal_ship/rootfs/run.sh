@@ -19,6 +19,6 @@ if [[ -z "$JOURNAL" ]]; then
   exit 1
 fi
 
-bashio::log.info "Journal shipper: image built $(cat /etc/local-build-date 2>/dev/null || echo unknown), $(journalctl --version | head -1), journal at ${JOURNAL}"
+bashio::log.info "Journal shipper: image built $(cat /etc/local-build-date 2>/dev/null || echo unknown), $(journalctl --version | head -1), ca-certificates $(dpkg-query -W -f='${Version}' ca-certificates 2>/dev/null || echo unknown), journal at ${JOURNAL}"
 export JOURNAL_DIR="$JOURNAL"
 exec python3 -u /usr/local/bin/journal_ship.py /data/options.json
